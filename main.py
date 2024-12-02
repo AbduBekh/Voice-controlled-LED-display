@@ -1,4 +1,5 @@
 import spidev
+import warnings
 import speech_recognition as sr
 from speech_recognition.recognizers import google
 
@@ -21,6 +22,7 @@ from digitDisplay import parse_timer
 from TemperatureDisplay import tempDisplay
 from weatherDisplay import displayForcast
 
+warnings.filterwarnings("ignore")
 # Initialize speech recognition
 r = sr.Recognizer()
 mic = sr.Microphone()
@@ -52,12 +54,8 @@ def choose_language():
 
 
 def execute_command(command):
-	global stop_flag
-	stop_flag.set()
-	stop_flag.clear()
 	if command in COMMAND_MAP:
-		thread = threading.Thread(target=COMMAND_MAP[command])
-		thread.start()
+		COMMAND_MAP[command]()
 	else:
 		print("Command not recognized, please try again.")
         
@@ -108,10 +106,13 @@ while running:
 			
 		if "countdown" in words or "timer" in words:
 			minutes, seconds = parse_timer(words)
-			stop_flag.set()
-			stop_flag.clear()
-			thread = threading.Thread(target=countdown, args=(minutes, seconds))  
-			thread.start()
+			if active_thread and active_thread.is_alive():
+				stop_flag.set()
+				active_thread.join()
+				stop_flag.clear()
+			clear_matrix()
+			active_thread = threading.Thread(target=countdown, args=(minutes, seconds))
+			active_thread.start()
 			continue
 
 		for command in COMMAND_MAP:
@@ -121,6 +122,7 @@ while running:
 					stop_flag.set()
 					active_thread.join()
 					stop_flag.clear()
+				clear_matrix()
 				active_thread = threading.Thread(target= execute_command, args=(command,))
 				active_thread.start()
 				#execute_command(command)
